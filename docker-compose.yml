@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: stocksync
+      POSTGRES_PASSWORD: stocksync
+      POSTGRES_DB: stocksync
+    ports:
+      - "5434:5432"          # 5434 снаружи: 5432 почти всегда занят локальным постгресом
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stocksync -d stocksync"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      STOCKSYNC_DATABASE_URL: postgresql+asyncpg://stocksync:stocksync@db:5432/stocksync
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: .
+    # Отправщик вынесен в отдельный процесс: веб-процесс перезапускают при
+    # выкате, и фоновая задача внутри него теряет незавершённую отправку.
+    command: python -m app.worker --interval 2 --dry-run
+    environment:
+      STOCKSYNC_DATABASE_URL: postgresql+asyncpg://stocksync:stocksync@db:5432/stocksync
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

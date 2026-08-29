@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Depends и Header в значениях по умолчанию это не ошибка, а способ, которым
+# FastAPI объявляет зависимости. Без этой строки B008 ругается на каждую ручку.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", "fastapi.Path"]

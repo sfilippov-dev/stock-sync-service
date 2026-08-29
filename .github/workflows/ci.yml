@@ -1,0 +1,41 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: stocksync
+          POSTGRES_PASSWORD: stocksync
+          POSTGRES_DB: stocksync
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U stocksync -d stocksync"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      STOCKSYNC_DATABASE_URL: postgresql+asyncpg://stocksync:stocksync@localhost:5434/stocksync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Линтер
+        run: ruff check app tests scripts
+      - name: Миграции накатываются и откатываются
+        run: |
+          python -m alembic upgrade head
+          python -m alembic downgrade base
+          python -m alembic upgrade head
+      - name: Тесты
+        run: python -m pytest
+      - name: Схема OpenAPI собирается
+        run: python -c "from app.main import app; import json; print(len(json.dumps(app.openapi())))"
