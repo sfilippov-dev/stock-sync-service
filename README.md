@@ -1,5 +1,7 @@
 # stock-sync-service
 
+[![tests](https://github.com/sfilippov-dev/stock-sync-service/actions/workflows/ci.yml/badge.svg)](https://github.com/sfilippov-dev/stock-sync-service/actions/workflows/ci.yml)
+
 Один источник правды по остаткам товара и рассылка изменений во внешние
 системы. FastAPI, PostgreSQL, очередь в базе, журнал изменений с откатом
 одной командой.
