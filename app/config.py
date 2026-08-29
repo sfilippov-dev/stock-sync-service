@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     #: срок жизни ключа идемпотентности
     idempotency_ttl_hours: int = Field(default=24, ge=1)
 
+    #: адрес брокера; значение по умолчанию совпадает с docker-compose
+    rabbit_url: str = "amqp://stocksync:stocksync@localhost:5672/"
+    #: обменник, в который уходят события об остатках
+    rabbit_exchange: str = "stocksync.events"
+    #: сколько сообщений приёмник берёт в работу не дожидаясь подтверждения
+    rabbit_prefetch: int = Field(default=20, ge=1, le=1000)
+
     echo_sql: bool = False
 
 

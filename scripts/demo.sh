@@ -31,3 +31,10 @@ curl -sS "$API/v1/outbox"
 say "6. Здоровье"
 curl -sS "$API/health"
 echo
+
+say "7. Что уехало в брокер"
+# Показывает разницу между целями: приёмник подписан на stock.wb, поэтому
+# события для wb закрыты, а для ozon честно висят неудачей, а не
+# притворяются доставленными. Так работает флаг mandatory.
+docker compose exec -T rabbit rabbitmqctl list_queues name messages consumers 2>/dev/null \
+  || echo "брокер не поднят: make up"

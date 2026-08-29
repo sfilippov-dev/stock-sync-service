@@ -45,7 +45,7 @@ async def test_successful_delivery_marks_events_done(client, session, update):
     await queue_one_change(client, update)
     sent = []
 
-    async def sender(target, payload):
+    async def sender(target, payload, key):
         sent.append((target, payload))
 
     result = await dispatch_once(session, sender, FAST)
@@ -57,7 +57,7 @@ async def test_successful_delivery_marks_events_done(client, session, update):
 async def test_failure_schedules_a_retry_and_keeps_the_reason(client, session, update):
     await queue_one_change(client, update)
 
-    async def broken(target, payload):
+    async def broken(target, payload, key):
         raise ConnectionError("приёмник недоступен")
 
     result = await dispatch_once(session, broken, FAST)
@@ -74,7 +74,7 @@ async def test_events_go_to_the_dead_queue_after_the_declared_attempts(client, s
     их с обычными неудачами значит никогда их не заметить."""
     await queue_one_change(client, update)
 
-    async def broken(target, payload):
+    async def broken(target, payload, key):
         raise TimeoutError("нет ответа")
 
     await drain(session, broken)
@@ -86,7 +86,7 @@ async def test_events_go_to_the_dead_queue_after_the_declared_attempts(client, s
 async def test_dead_events_can_be_revived_after_the_cause_is_fixed(client, session, update):
     await queue_one_change(client, update)
 
-    async def broken(target, payload):
+    async def broken(target, payload, key):
         raise TimeoutError("нет ответа")
 
     await drain(session, broken)
@@ -98,7 +98,7 @@ async def test_dead_events_can_be_revived_after_the_cause_is_fixed(client, sessi
 
     delivered = []
 
-    async def working(target, payload):
+    async def working(target, payload, key):
         delivered.append(target)
 
     result = await dispatch_once(session, working, FAST)
@@ -108,7 +108,7 @@ async def test_dead_events_can_be_revived_after_the_cause_is_fixed(client, sessi
 async def test_one_broken_target_does_not_block_the_other(client, session, update):
     await queue_one_change(client, update)
 
-    async def half_broken(target, payload):
+    async def half_broken(target, payload, key):
         if target == "wb":
             raise ConnectionError("wb лежит")
 
@@ -120,7 +120,7 @@ async def test_delivered_events_are_not_sent_twice(client, session, update):
     await queue_one_change(client, update)
     calls = []
 
-    async def sender(target, payload):
+    async def sender(target, payload, key):
         calls.append(target)
 
     await dispatch_once(session, sender, FAST)

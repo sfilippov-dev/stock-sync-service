@@ -27,8 +27,12 @@ from app.models import DeliveryStatus, OutboxEvent, utcnow
 
 log = logging.getLogger("stocksync.outbox")
 
-#: отправитель: получает цель и тело, бросает исключение при неудаче
-Sender = Callable[[str, str], Awaitable[None]]
+#: Отправитель: получает цель, тело и ключ события; бросает исключение при неудаче.
+#: Ключ это идентификатор строки в outbox. Он передаётся отправителю, потому
+#: что транспорт с доставкой «не реже одного раза» обязан дать приёмнику
+#: возможность отличить повтор от нового события, а стабильнее этого числа
+#: у события ничего нет.
+Sender = Callable[[str, str, str], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,7 +75,7 @@ async def dispatch_once(session: AsyncSession, sender: Sender,
     for event in events:
         event.attempts += 1
         try:
-            await sender(event.target, event.payload)
+            await sender(event.target, event.payload, str(event.id))
         except Exception as error:                     # noqa: BLE001
             event.last_error = f"{type(error).__name__}: {error}"[:1000]
             if event.attempts >= settings.delivery_attempts:

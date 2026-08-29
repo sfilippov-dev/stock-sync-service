@@ -15,6 +15,20 @@ services:
       timeout: 3s
       retries: 15
 
+  rabbit:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: stocksync
+      RABBITMQ_DEFAULT_PASS: stocksync
+    ports:
+      - "5672:5672"
+      - "15672:15672"       # веб-панель: видно очереди, мёртвые сообщения и скорость
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
   api:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -30,11 +44,29 @@ services:
     build: .
     # Отправщик вынесен в отдельный процесс: веб-процесс перезапускают при
     # выкате, и фоновая задача внутри него теряет незавершённую отправку.
-    command: python -m app.worker --interval 2 --dry-run
+    command: python -m app.worker --interval 2 --transport rabbit
     environment:
       STOCKSYNC_DATABASE_URL: postgresql+asyncpg://stocksync:stocksync@db:5432/stocksync
+      STOCKSYNC_RABBIT_URL: amqp://stocksync:stocksync@rabbit:5672/
     depends_on:
       db:
+        condition: service_healthy
+      rabbit:
+        condition: service_healthy
+
+  consumer:
+    build: .
+    # Приёмник отдельно от отправщика: у них разные причины падать и разные
+    # скорости. Общий процесс означал бы, что медленный приёмник тормозит
+    # разбор очереди в базе.
+    command: python -m app.consumer --target wb
+    environment:
+      STOCKSYNC_DATABASE_URL: postgresql+asyncpg://stocksync:stocksync@db:5432/stocksync
+      STOCKSYNC_RABBIT_URL: amqp://stocksync:stocksync@rabbit:5672/
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbit:
         condition: service_healthy
 
 volumes:

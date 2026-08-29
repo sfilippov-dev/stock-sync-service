@@ -19,8 +19,20 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U stocksync -d stocksync"
           --health-interval 5s --health-timeout 5s --health-retries 10
+      rabbit:
+        image: rabbitmq:3.13-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: stocksync
+          RABBITMQ_DEFAULT_PASS: stocksync
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       STOCKSYNC_DATABASE_URL: postgresql+asyncpg://stocksync:stocksync@localhost:5434/stocksync
+      # Брокер поднимается по-настоящему: тесты связки с заглушкой проверяли бы
+      # только то, что вызван publish, и молчали бы о подтверждениях и повторах.
+      STOCKSYNC_RABBIT_URL: amqp://stocksync:stocksync@localhost:5672/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

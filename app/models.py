@@ -137,3 +137,27 @@ class IdempotencyKey(Base):
     response_status: Mapped[int] = mapped_column(Integer)
     response_body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class InboxEvent(Base):
+    """Отметка о принятом сообщении на стороне приёмника.
+
+    RabbitMQ обещает доставку не реже одного раза. Приёмник, упавший
+    между обработкой и подтверждением, получит то же сообщение снова, и
+    это штатный ход событий, а не сбой. Уникальный ключ по message_id
+    превращает повтор в пустую операцию: вставка не проходит, значит
+    сообщение уже учтено, и остаётся только подтвердить его брокеру.
+
+    Пара к таблице outbox: та отвечает за то, что событие не потеряется
+    на отправке, эта за то, что оно не применится дважды на приёме.
+    """
+
+    __tablename__ = "inbox"
+    __table_args__ = (
+        Index("ix_inbox_received_at", "received_at"),
+    )
+
+    message_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    target: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[str] = mapped_column(Text)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
